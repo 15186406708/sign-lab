@@ -31,11 +31,14 @@ ROOT = os.path.dirname(HERE)
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-import ratelimit  # noqa: E402
+import _bootstrap  # noqa: E402,F401  让 ratelimit_kit 可导入
 import recover  # noqa: E402
 import signer  # noqa: E402
+from ratelimit_kit import Backoff, TokenBucket, parse_retry_after  # noqa: E402
 
 DEFAULT_BASE = "http://127.0.0.1:8787"
+# 服务端没写等待时长时的兜底退避（ratelimit_kit 刻意不替调用方猜这个数）
+DEFAULT_RETRY_WAIT = 5.0
 
 
 class Stats:
@@ -109,7 +112,7 @@ def load_seen_ids(out_path: str) -> set[str]:
 
 
 def fetch_page(base: str, salt: str, page: int, size: int, stats: Stats,
-               limiter: ratelimit.TokenBucket, backoff: ratelimit.Backoff,
+               limiter: ratelimit_kit.TokenBucket, backoff: ratelimit_kit.Backoff,
                *, timeout: float, max_retries: int) -> list[dict]:
     """取一页。429 → 原地退避；401 → 直接失败并打出对齐信息（签名算错了）。"""
     params = {"page": str(page), "size": str(size)}
@@ -149,7 +152,8 @@ def fetch_page(base: str, salt: str, page: int, size: int, stats: Stats,
         if status == 429:
             stats.http_429 += 1
             payload = load_json_str(body)
-            delay = ratelimit.parse_retry_after(payload, resp_headers, default=5.0)
+            # ratelimit_kit 解析不出来时返回 None —— 兜底值由调用方显式决定
+            delay = parse_retry_after(payload, resp_headers) or DEFAULT_RETRY_WAIT
             jittered = delay + random.uniform(0, 0.5)
             print(f"  [429] 第 {attempt}/{max_retries} 次，服务端要求等 "
                   f"{delay:.0f}s（实际退避 {jittered:.1f}s）原地重试同一页")
@@ -221,9 +225,9 @@ def main() -> int:
 
     print(f"[3/4] 开始采集：第 {start_page} ~ {args.pages} 页，"
           f"每页 {args.size} 条，全局限速 {args.min_interval}s/次")
-    limiter = ratelimit.TokenBucket(capacity=1.0,
-                                   refill_per_sec=1.0 / max(args.min_interval, 0.001))
-    backoff = ratelimit.Backoff(base=1.0, factor=2.0, cap=30.0)
+    limiter = TokenBucket(capacity=1.0,
+                          refill_per_sec=1.0 / max(args.min_interval, 0.001))
+    backoff = Backoff(base=1.0, factor=2.0, cap=30.0)
 
     with open(args.out, "a", encoding="utf-8") as fh:
         for page in range(start_page, args.pages + 1):

@@ -30,9 +30,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "client"))
 
-import ratelimit  # noqa: E402
+import _bootstrap  # noqa: E402,F401  让 ratelimit_kit 可导入
 import recover  # noqa: E402
 import signer  # noqa: E402
+from ratelimit_kit import parse_retry_after  # noqa: E402
 
 SERVER = os.path.join(ROOT, "server", "app.py")
 OBF = os.path.join(ROOT, "server", "signer.obf.js")
@@ -174,7 +175,7 @@ def main() -> int:
             if status == 429:
                 got_429 = True
                 payload = json.loads(body)
-                retry_after = ratelimit.parse_retry_after(payload, resp_headers)
+                retry_after = parse_retry_after(payload, resp_headers)
                 check("429 正文里能解析出等待秒数", retry_after and retry_after >= 1,
                       f"实际 {retry_after}")
                 check("同时给了 Retry-After 头",
