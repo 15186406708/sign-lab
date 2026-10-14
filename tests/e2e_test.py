@@ -192,6 +192,28 @@ def main() -> int:
         check("签名盐非空且长度合理", 4 <= len(salt) <= 32, f"实际 {salt!r}")
         check("本地复算签名与服务端校验一致", True)
 
+        print("\n场景 11：限流状态表不会随访问者数量无限增长（放公网的前提）")
+        sys.path.insert(0, os.path.join(ROOT, "server"))
+        import app as server_app  # noqa: E402
+        probe = server_app.TokenBucket(capacity=2, refill_per_sec=1.0)
+        for i in range(probe._SWEEP_THRESHOLD * 2):
+            probe.take(f"198.51.100.{i}")
+        before = len(probe._state)
+        check(f"取过 {before} 个不同来源后都有条目（这些都是'最近活跃'的，应当保留）",
+              before >= probe._SWEEP_THRESHOLD, f"实际 {before}")
+
+        # 把一半标记成"很久没用过"（超过回满所需时间），下一次请求应当把它们清掉
+        window = probe._idle_window()
+        for key in list(probe._state)[:before // 2]:
+            tokens, _last = probe._state[key]
+            probe._state[key] = (tokens, time.monotonic() - window - 1)
+        probe.take("fresh-client")
+        after = len(probe._state)
+        check("空闲超过回满周期的条目会被清理",
+              after <= before - before // 2 + 1, f"清理前 {before} → 清理后 {after}")
+        check("清理不会改变限流语义（空闲条目再被用到时本来也会回满）",
+              probe.take("another-new-client")[0] is True)
+
     finally:
         proc.terminate()
         try:

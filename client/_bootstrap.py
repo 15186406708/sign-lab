@@ -1,13 +1,13 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """让 ``ratelimit_kit`` 可被导入。
 
 限流/退避原语已经抽成独立库
-`ratelimit-kit <https://github.com/15186406708/ratelimit-kit>`_，
+`ratelimit-kit <https://github.com/zxyin-dev/ratelimit-kit>`_，
 本项目（sign-lab）与 gdzy-collector 共用同一份实现 —— 修一处两边都受益。
 
 正式使用请：
 
-    pip install git+https://github.com/15186406708/ratelimit-kit
+    pip install git+https://github.com/zxyin-dev/ratelimit-kit
 
 这里保留一个"兄弟目录回退"：两个项目在本工作区同期开发，
 改完库能立刻生效，不必每次重装。

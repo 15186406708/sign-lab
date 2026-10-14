@@ -1,4 +1,4 @@
-# sign-lab · 签名复算靶场
+﻿# sign-lab · 签名复算靶场
 
 一个**自己写服务端、自己写混淆、自己还原**的接口签名靶场。
 用来练习和展示「把混淆 JS 里的签名算法静态还原成纯 Python」这件事。
@@ -41,9 +41,9 @@ python tests/e2e_test.py                  # 自己拉起服务端，验校验与
 
 采集结果落在 `data/items.jsonl`，审计报告落在 `data/collect_report.json`。
 
-> **限流与退避原语已抽成独立库：** [ratelimit-kit](https://github.com/15186406708/ratelimit-kit)。
+> **限流与退避原语已抽成独立库：** [ratelimit-kit](https://github.com/zxyin-dev/ratelimit-kit)。
 > 本项目与另一个采集项目（gdzy-collector）现在共用同一份实现 —— 修一处两边都受益。
-> 安装：`pip install git+https://github.com/15186406708/ratelimit-kit`；
+> 安装：`pip install git+https://github.com/zxyin-dev/ratelimit-kit`；
 > 仓库里保留了一个"兄弟目录回退"（`client/_bootstrap.py`），方便本地同期开发。
 
 ---

@@ -98,6 +98,32 @@ class TokenBucket:
         self._state: dict[str, tuple[float, float]] = {}
         self._lock = threading.Lock()
 
+    # 状态表按客户端建条目。放在内网自己用不会有问题，但**一旦对公网开放**，
+    # 扫描器/爬虫会带来大量不同来源，条目数只增不减 —— 那就是一个缓慢的内存泄漏。
+    #
+    # 回收判据（这里我第一版写错了，被测试抓出来）：
+    #   错：按"令牌已回满"判断 —— 但客户端用完就剩 capacity-1，**永远回不满**，判据失效。
+    #   对：按**空闲时间**判断 —— 只要距上次使用已经超过"从空回满所需的时间"，
+    #       这个条目再被用到时也会先回满，因此**删掉它和保留它在行为上完全等价**。
+    #
+    # 由此得到的内存上界：条目数只与"最近一个回满周期内活跃过的来源数"相关，
+    # 更早的来源会在下次请求时被清掉。
+    _SWEEP_THRESHOLD = 128
+
+    def _idle_window(self) -> float:
+        """从空回满需要多久 —— 超过这个时长没动过的条目可以安全删除。"""
+        return self.capacity / self.refill if self.refill > 0 else float("inf")
+
+    def _sweep(self, now: float) -> None:
+        """条目数超过阈值时清理空闲条目。调用方需持锁。"""
+        if len(self._state) < self._SWEEP_THRESHOLD:
+            return
+        window = self._idle_window()
+        idle = [key for key, (_tokens, last) in self._state.items()
+                if now - last >= window]
+        for key in idle:
+            del self._state[key]
+
     def take(self, key: str) -> tuple[bool, float]:
         now = time.monotonic()
         with self._lock:
@@ -105,10 +131,14 @@ class TokenBucket:
             tokens = min(self.capacity, tokens + (now - last) * self.refill)
             if tokens >= 1.0:
                 self._state[key] = (tokens - 1.0, now)
-                return True, 0.0
-            self._state[key] = (tokens, now)
-            wait = (1.0 - tokens) / self.refill if self.refill > 0 else 60.0
-            return False, wait
+                allowed, wait = True, 0.0
+            else:
+                self._state[key] = (tokens, now)
+                allowed = False
+                wait = (1.0 - tokens) / self.refill if self.refill > 0 else 60.0
+            # 两条路径都要触发清理：只在"被拦"时清理，正常放行的流量永远不会触发它
+            self._sweep(now)
+            return allowed, wait
 
 
 class NonceStore:
