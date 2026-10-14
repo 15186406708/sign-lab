@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """让 ``ratelimit_kit`` 可被导入。
 
 限流/退避原语已经抽成独立库
