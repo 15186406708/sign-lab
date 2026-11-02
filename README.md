@@ -159,6 +159,8 @@ $ python tests/parity_check.py
 结论：通过。24 组用例，JS 与 Python 完全一致。
 ```
 
+![24 组用例逐组比对](assets/parity.png)
+
 * `parity_check.py`：24 组用例（含中文参数、空值、键顺序颠倒）在 Node 与 Python
   两侧分别算签名，逐组比对 —— 复算路线能不能信的底线。
 * `e2e_test.py`：26 项断言，覆盖存活、无签名、错签名、规范化、截断、时间戳过期、
